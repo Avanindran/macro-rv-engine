@@ -27,15 +27,30 @@ st.set_page_config(page_title="Macro-RAG Terminal", layout='wide', initial_sideb
 # --- Refined Institutional CSS ---
 st.markdown("""
     <style>
-    .stApp { background-color: #000000; } 
-    h1, h2, h3, h4 { color: #ff9d00 !important; font-family: 'Arial', sans-serif; text-transform: uppercase; font-weight: 700;}
-    p, span, div, label { font-family: 'Arial', sans-serif; font-size: 15px; color: #c9d1d9; }
-    .stMetric label { color: #8b949e !important; font-size: 13px !important; text-transform: uppercase;}
-    .stMetric value { color: #ffffff !important; font-family: 'Courier New', monospace !important; font-size: 24px !important;}
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; margin-bottom: 20px;}
-    .stTabs [data-baseweb="tab"] { border-radius: 4px 4px 0px 0px; padding: 10px 20px; border: 1px solid #30363d; border-bottom: none; background-color: #0d1117;}
-    .stTabs [aria-selected="true"] { background-color: #161b22 !important; border-bottom: 2px solid #ff9d00 !important;}
-    [data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"] { background-color: #0d1117; }
+    /* Force pitch black on the main app container */
+    .stAppViewContainer {
+        background-color: #000000;
+    }
+    
+    /* Clean up headers */
+    h1, h2, h3, h4 { 
+        color: #ff9d00 !important; 
+        font-family: 'Arial', sans-serif; 
+        text-transform: uppercase; 
+        font-weight: 700;
+    }
+
+    /* Style the bordered containers (st.container(border=True)) */
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: #0d1117;
+        border: 1px solid #30363d !important;
+    }
+
+    /* Fix the Metric values for terminal readability */
+    [data-testid="stMetricValue"] {
+        font-family: 'Courier New', monospace !important;
+        color: #ffffff !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
