@@ -5,7 +5,8 @@
         "January 2024: CPI data comes in unexpectedly hot. Portfolio took a 2% hit on duration exposure.",
         "Stocks tumble, oil soars past $100 on Mideast war",
         "Telecom stocks have had a great start to the year \u2014\u00a0and they\u2019re still quite cheap",
-        "Telecom stocks have had a great start to the year \u2014\u00a0and they\u2019re still quite cheap"
+        "Telecom stocks have had a great start to the year \u2014\u00a0and they\u2019re still quite cheap",
+        "Stock Futures Fall, Oil Crosses $100 as Middle East Conflict Intensifies"
     ],
     "metadatas": [
         {
@@ -40,6 +41,13 @@
             "sentiment": "Hot",
             "implied_driver": "Value Investing",
             "action": "NIL"
+        },
+        {
+            "theme": "Geopolitics",
+            "asset_class": "Equities",
+            "sentiment": "Hot",
+            "implied_driver": "Supply shock",
+            "action": "NO position"
         }
     ],
     "ids": [
@@ -48,6 +56,7 @@
         "f76983bf-c299-458f-b921-778b0f477857",
         "bf4e6f83-c549-41f2-81e6-e79df5868b06",
         "f6c0bfc1-6b87-448d-a87d-c63b6983716d",
-        "e6f1b034-dfab-4054-9c81-4bf0dba0225b"
+        "e6f1b034-dfab-4054-9c81-4bf0dba0225b",
+        "f696a9bc-7a7e-4233-8625-d409419a547f"
     ]
 }

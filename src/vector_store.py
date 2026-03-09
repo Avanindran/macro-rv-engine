@@ -4,6 +4,7 @@ import uuid
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import datetime
 
 # --- File System Setup ---
 # Ensure we save the file in your 'data' folder
@@ -21,8 +22,17 @@ memory_bank = {
     "ids": []
 }
 
+macro_event_log = []
+
 # Initialize the text-to-vector math model
 vectorizer = TfidfVectorizer(stop_words='english')
+
+
+def log_macro_event(event_json):
+    event_json["timestamp"] = datetime.datetime.now().isoformat()
+    macro_event_log.append(event_json)
+
+
 
 # --- Persistence Functions ---
 def save_memory_to_disk():
@@ -50,6 +60,38 @@ def add_to_memory(article_text: str, metadata: dict):
     # Save to physical file immediately
     save_memory_to_disk()
     print(f"Saved to memory & disk: {article_text[:40]}...")
+
+
+
+BLOTTER_PATH = os.path.join(DATA_DIR, 'trade_blotter.json')
+trade_blotter = []
+
+def load_trade_blotter():
+    global trade_blotter
+    if os.path.exists(BLOTTER_PATH):
+        with open(BLOTTER_PATH, 'r') as f:
+            trade_blotter = json.load(f)
+
+def save_to_trade_blotter(ticker: str, action: str, thesis: str, critique: dict):
+    load_trade_blotter() # Ensure we have the latest
+    
+    trade_record = {
+        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "ticker": ticker,
+        "action": action.upper(),
+        "thesis": thesis,
+        "pm_approval": critique.get("approval_status", "Unknown"),
+        "pm_critique": critique.get("senior_pm_critique", ""),
+        "risk_identified": critique.get("key_risk", "")
+    }
+    
+    trade_blotter.append(trade_record)
+    
+    with open(BLOTTER_PATH, 'w') as f:
+        json.dump(trade_blotter, f, indent=4)
+
+# Run this once on startup to load history
+load_trade_blotter()
 
 def recall_past_events(current_event: str, n_results: int = 2) -> dict:
     """Searches the memory bank using Cosine Similarity"""
@@ -86,6 +128,9 @@ if not load_memory_from_disk():
 
     for event in past_events:
         add_to_memory(event["text"], event["meta"])
+
+
+
 
 # --- Testing the Module ---
 if __name__ == "__main__":
