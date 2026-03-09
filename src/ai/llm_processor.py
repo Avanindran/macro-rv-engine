@@ -61,7 +61,46 @@ def extract_macro_signals(headline: str) -> dict:
     except Exception as e:
         print(f"Error connecting to LLM: {e}")
         return {}
+
+
+
+def generate_morning_thesis(headlines: list, macro_data: dict) -> dict:
+    """
+    Ingests all daily headlines and current market pricing to output a structural morning thesis.
+    """
+    joined_headlines = "\n- ".join(headlines)
     
+    system_prompt = f"""
+    You are the Chief Global Macro Strategist at Schroders. It is 6:30 AM. 
+    Review the following overnight headlines and the current live market pricing.
+    
+    LIVE PRICING: {json.dumps(macro_data)}
+    
+    OVERNIGHT HEADLINES:
+    - {joined_headlines}
+    
+    Synthesize this into a cohesive daily trading thesis. Return STRICTLY a JSON object with:
+    - dominant_theme: (1-3 words, e.g., "Geopolitical Risk-Off", "Disinflationary Growth")
+    - market_regime: (Choose one: "Risk-On", "Risk-Off", "Stagflation", "Reflation", "Deflation")
+    - core_thesis: (A 3-sentence executive summary of how the overnight news shifts the macro landscape)
+    - high_conviction_call: (1 specific directional asset call, e.g., "Long US Dollar (DXY)")
+    - key_tail_risk: (What could break this thesis today?)
+    """
+
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": "Generate the morning macro thesis."}
+            ],
+            temperature=0.3 # Keep it analytical but allow synthesis
+        )
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        print(f"LLM Error: {e}")
+        return {}
 if __name__ == "__main__":
     #Mock headline acting as our input data
     sample_news = "US CPI jumps to 4.5% in February, crushing estimates and triggering a massive selloff in Treasuries."

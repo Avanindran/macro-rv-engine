@@ -6,14 +6,14 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Use absolute imports to prevent "No module named" errors
 try:
-    from src.regime_trades import REGIME_TRADES
-    from src.macro_graph_40 import propagate_macro_event
-    from src.trade_generator import TRADE_MAP
+    from graphs.regime_trades import REGIME_TRADES
+    from graphs.macro_graph_40 import propagate_macro_event
+    from ai.trade_generator import TRADE_MAP
 except ImportError:
     # Fallback for direct script execution
-    import regime_trades as REGIME_TRADES
-    import macro_graph_40 as macro_graph
-    import trade_generator as TRADE_MAP
+    import graphs.regime_trades as REGIME_TRADES
+    import graphs.macro_graph_40 as macro_graph
+    import ai.trade_generator as TRADE_MAP
     
     # Map the functions if fallback is used
     propagate_macro_event = macro_graph.propagate_macro_event
