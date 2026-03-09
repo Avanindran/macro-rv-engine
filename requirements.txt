@@ -12,3 +12,12 @@ chromadb==0.4.24
 pandas==2.2.1
 scipy==1.12.0
 numpy==1.26.4
+streamlit
+yfinance
+feedparser
+plotly
+networkx
+matplotlib
+scikit-learn
+groq
+scipy
