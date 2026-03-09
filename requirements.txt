@@ -21,3 +21,10 @@ matplotlib
 scikit-learn
 groq
 scipy
+json
+os 
+sys
+datetime
+collections
+uuid
+matplotlib

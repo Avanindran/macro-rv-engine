@@ -1,4 +1,3 @@
-# src/impact_engine.py
 
 IMPACT_MATRIX = {
 
