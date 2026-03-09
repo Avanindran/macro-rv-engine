@@ -50,15 +50,15 @@ def calculate_rv_signal(macro_data: dict):
     z_score = (X - mean) / sd
 
     trade_idea = "Hold Position / Monitor"
-    action_colour = "normal"
+    action_color = "normal"
 
 
     if z_score > 2.0:
         trade_idea = f"Sell the {model['spread_name']} (Overextended likely to mean revert)"
-        action_colour = "red"
+        action_color = "red"
     elif z_score < -2.0:
         trade_idea = f"Buy the {model['spread_name']} (Undervalued likely to mean revert)"
-        action_colour = "green"
+        action_color = "green"
         
     return {
         "spread_name": model['spread_name'],
@@ -67,7 +67,7 @@ def calculate_rv_signal(macro_data: dict):
         "historical_std": model['historical_std'],
         "z_score": round(z_score, 2),
         "trade_idea": trade_idea,
-        "action_colour": action_colour
+        "action_color":action_color
     }
 
 # --- Testing the Module ---

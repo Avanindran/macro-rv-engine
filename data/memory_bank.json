@@ -1,0 +1,53 @@
+{
+    "documents": [
+        "August 2024: US inflation prints at 5.0%, shocking the market. We rotated out of tech equities and bought 2-Year US Treasuries.",
+        "October 2025: Geopolitical tensions in the Middle East disrupt supply chains. Oil rallies 10%. We went long Brent Crude.",
+        "January 2024: CPI data comes in unexpectedly hot. Portfolio took a 2% hit on duration exposure.",
+        "Stocks tumble, oil soars past $100 on Mideast war",
+        "Telecom stocks have had a great start to the year \u2014\u00a0and they\u2019re still quite cheap",
+        "Telecom stocks have had a great start to the year \u2014\u00a0and they\u2019re still quite cheap"
+    ],
+    "metadatas": [
+        {
+            "theme": "Inflation",
+            "action": "Bought 2Y Treasuries"
+        },
+        {
+            "theme": "Geopolitics",
+            "action": "Long Brent"
+        },
+        {
+            "theme": "Inflation",
+            "action": "Reduced Duration"
+        },
+        {
+            "theme": "Geopolitics",
+            "asset_class": "Equities, Commodities",
+            "sentiment": "Hot",
+            "implied_driver": "Supply shock",
+            "action": "NIL"
+        },
+        {
+            "theme": "Equity Market",
+            "asset_class": "Equities",
+            "sentiment": "Hot",
+            "implied_driver": "Value Investing",
+            "action": "NIL"
+        },
+        {
+            "theme": "Equity Market",
+            "asset_class": "Equities",
+            "sentiment": "Hot",
+            "implied_driver": "Value Investing",
+            "action": "NIL"
+        }
+    ],
+    "ids": [
+        "47cbeaaf-21b9-4cba-a868-17705cada4cb",
+        "3775d497-e564-400b-afb6-fc76bf3f062a",
+        "f76983bf-c299-458f-b921-778b0f477857",
+        "bf4e6f83-c549-41f2-81e6-e79df5868b06",
+        "f6c0bfc1-6b87-448d-a87d-c63b6983716d",
+        "e6f1b034-dfab-4054-9c81-4bf0dba0225b"
+    ]
+}
