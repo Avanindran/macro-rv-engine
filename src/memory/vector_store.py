@@ -113,7 +113,7 @@ def recall_past_events(current_event: str, n_results: int = 10) -> dict:
     # Sort indices by highest similarity (descending)
     sorted_indices = similarities.argsort()[::-1]
 
-    # THE QUANT FIX: Filter out exact matches to prevent data leakage
+    
     top_indices = []
     for idx in sorted_indices:
         # Check if the text is exactly the same (ignoring case/spaces)
