@@ -1,4 +1,5 @@
 ## MacroSynthetix Terminal
+https://macrosynthetix.streamlit.app/ 
 
 Asset managers face a constant stream of market-moving information including macroeconomic releases, central bank commentary, geopolitical developments, and regulatory announcements. This information is often fragmented across multiple sources, making it difficult for analysts to track evolving themes and assess cross-asset risks in real time.
 
