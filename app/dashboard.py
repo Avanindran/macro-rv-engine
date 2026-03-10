@@ -7,24 +7,31 @@ import yfinance as yf
 import plotly.graph_objects as go
 import networkx as nx
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Local imports
+
+# ==========================================
+# LOCAL IMPORTS 
+# ==========================================
 from src.core.engine import calculate_rv_signal
-from src.ai.llm_processor import extract_macro_signals, critique_trade_thesis, generate_morning_thesis
+from src.ai.llm_processor import chat_with_macro_assistant, extract_macro_signals, critique_trade_thesis, generate_morning_thesis, generate_institutional_trades
 from src.memory.vector_store import recall_past_events, add_to_memory, memory_bank, save_to_trade_blotter, trade_blotter
 from src.graphs.macro_graph import propagate_macro_shock, generate_risk_implications
 from src.memory.theme_tracker import update_theme
 from src.graphs.impact_matrix import generate_market_impacts
 from src.core.regime_classifier import classify_regime
-from src.ai.ai_trade_engine import generate_ai_trades
-from src.core.trade_scoring import score_trades
+from src.ai.ai_trade_engine import generate_and_score_trades
 
-# --- Page Configuration ---
+
+
+# ==========================================
+# CONFIGURATION
+# ==========================================
 st.set_page_config(page_title="Macro-RAG Terminal", layout='wide', initial_sidebar_state="collapsed")
-
-# --- Refined Institutional CSS ---
 st.markdown("""
     <style>
     /* Force pitch black on the main app container */
@@ -54,7 +61,9 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- Data Fetching Helpers ---
+# ==========================================
+# Data 
+# ==========================================
 @st.cache_data(ttl=300)
 def fetch_live_news():
     try:
@@ -68,6 +77,7 @@ def fetch_live_news():
 @st.cache_data(ttl=600)
 def fetch_macro_overview():
     tickers = {
+        "S&P 500": "^GSPC", # Added for true risk sentiment
         "US 10Y Yield": "^TNX", 
         "US 2Y Yield": "^IRX", 
         "EUR/USD": "EURUSD=X", 
@@ -78,13 +88,22 @@ def fetch_macro_overview():
     data = {}
     try:
         for name, ticker in tickers.items():
-            hist = yf.Ticker(ticker).history(period="2d")
+            # Pull 6 months of data
+            hist = yf.Ticker(ticker).history(period="6mo")
             if len(hist) >= 2:
                 current = hist['Close'].iloc[-1]
-                previous = hist['Close'].iloc[-2]
-                pct_change = ((current - previous) / previous) * 100
-                data[name] = {"val": round(current, 3), "change": round(pct_change, 2)}
-    except:
+                prev_daily = hist['Close'].iloc[-2]
+                prev_6mo = hist['Close'].iloc[0] # Price 6 months ago
+                
+                daily_pct = ((current - prev_daily) / prev_daily) * 100
+                six_mo_pct = ((current - prev_6mo) / prev_6mo) * 100
+                
+                data[name] = {
+                    "val": round(current, 3), 
+                    "change": round(daily_pct, 2), # Keep for the header strip
+                    "6mo_change": round(six_mo_pct, 2) # New institutional metric
+                }
+    except Exception as e:
         pass
     return data
 
@@ -96,14 +115,27 @@ def fetch_chart_data(ticker, period, interval):
     except Exception as e:
         return None
 
+@st.cache_data(ttl=300)
+def fetch_correlation_matrix():
+    #fetch macro common macro proxies
+    tickers = ['SPY', 'TLT', 'GLD', 'USO', 'UUP']
+    try:
+        df = yf.download(tickers, period ="6mo", interval = "1d")['Close']
+
+        returns = df.pct_change().dropna()
+        corr_matrix = returns.corr().round(2)
+        return corr_matrix
+    except Exception as e:
+        return None
+    
 # Fetch background data
 macro_data = fetch_macro_overview()
 live_news_dict = fetch_live_news()
 
 # ==========================================
-# HEADER & LIVE PRICING STRIP
+# HEADER 
 # ==========================================
-st.title("MACROSYNTHETIX TERMINAL")
+st.title("MACROSYNTHETIX TERMINAL (PROTOTYPE)")
 st.markdown("**SYSTEM STATUS:** ONLINE | **ASSET CLASS:** MULTI | **ENGINE:** TF-IDF, LLAMA-3")
 st.write("")
 
@@ -126,13 +158,13 @@ st.write("")
 st.write("")
 
 # ==========================================
-# MULTI-TAB WORKSPACE
+# TABS
 # ==========================================
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "MORNING BRIEFING & NEWS",
     "MACRO REGIME & RISKS",
     "EXECUTION TERMINAL",
-    "AI TRADE GENERATOR",
+    "MACRO AI CO-PILOT",
     "INSTITUTIONAL ARCHIVE"
 ])
 
@@ -141,7 +173,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 # ==========================================
 with tab1:
     
-    # --- AUTOMATED BATCH INGESTION (WITH DUPLICATE FIX) ---
+    # --- AUTOMATED BATCH INGESTION ---
     with st.container(border=True):
         st.subheader("Automated Theme Ingestion")
         st.markdown("Select a lookback horizon. The AI will process non-duplicate news and track themes into Institutional Memory.")
@@ -158,7 +190,6 @@ with tab1:
                     added_count = 0
                     
                     for hl in headlines_to_process:
-                        # THE FIX: Only extract and add if it's not already in the database
                         if hl not in existing_docs:
                             res = extract_macro_signals(hl)
                             meta = res
@@ -205,7 +236,7 @@ with tab1:
             else:
                 headline_input = st.text_area("ENTER CUSTOM HEADLINE:", value="Middle East tensions escalate, causing Brent crude to spike 8% overnight.")
 
-            if st.button("EXECUTE QUANTITATIVE PARSING", use_container_width=True):
+            if st.button("INGEST & ANALYZE EVENT", use_container_width=True):
                 with st.spinner("LLM Extracting Macro Entities..."):
                     data = extract_macro_signals(headline_input)
                     st.session_state.structured_data = data
@@ -222,7 +253,7 @@ with tab1:
                 
         if 'structured_data' in st.session_state:
             with st.container(border=True):
-                st.subheader("CROSS-ASSET CONTAGION MAP")
+                st.subheader("CROSS-ASSET IMPLICATIONS")
                 driver = st.session_state.structured_data.get('implied_driver', 'Unknown Event')
                 asset = st.session_state.structured_data.get('asset_class', 'Unknown Asset')
                 primary = st.session_state.structured_data.get('primary_impact', 'Unknown Primary')
@@ -247,7 +278,7 @@ with tab1:
 
     with col2:
         with st.container(border=True):
-            st.subheader("STAT-ARB RV ENGINE")
+            st.subheader("SUGGESTED RELATIVE VALUE TRADE")
             if 'structured_data' in st.session_state:
                 result = calculate_rv_signal(st.session_state.structured_data)
                 if "error" in result:
@@ -270,20 +301,25 @@ with tab1:
             else:
                 st.info("Awaiting Signal Execution...")
 
-        with st.container(border=True):
-            st.subheader("RAG PRECEDENTS")
-            if 'current_headline' in st.session_state:
-                memory_results = recall_past_events(st.session_state.current_headline)
-                if memory_results and memory_results['documents'] and len(memory_results["documents"][0]):
-                    for i in range(len(memory_results['documents'][0])):
-                        past_doc = memory_results['documents'][0][i]
-                        past_meta = memory_results['metadatas'][0][i] 
-                        distance = round(memory_results['distances'][0][i], 4)
-                        with st.expander(f"Archived Match {i+1} | Math Distance: {distance}"):
-                            st.caption(f"Desk Action: {past_meta.get('action', 'N/A')}")
-                            st.write(f"*{past_doc}*")
-
-        # THE FIX: Moved Impact Matrix here, strictly under RAG Precedents
+            with st.container(border=True):
+                        st.subheader("RAG PRECEDENTS")
+                        if 'current_headline' in st.session_state:
+                            # The backend pulls the top 10 for the LLM's deep context
+                            memory_results = recall_past_events(st.session_state.current_headline)
+                            
+                            if memory_results and memory_results['documents'] and len(memory_results["documents"][0]) > 0:
+                                
+                                display_count = min(2, len(memory_results['documents'][0]))
+                                
+                                for i in range(display_count):
+                                    past_doc = memory_results['documents'][0][i]
+                                    past_meta = memory_results['metadatas'][0][i] 
+                                    distance = memory_results['distances'][0][i]
+                                    
+                                    with st.expander(f"Archived Match {i+1} | Math Distance: {distance}"):
+                                        st.caption(f"Desk Action: {past_meta.get('action', 'N/A')}")
+                                        st.write(f"*{past_doc}*")
+                                        
         if "market_impacts" in st.session_state:
             with st.container(border=True):
                 st.subheader("CROSS-ASSET IMPACT MATRIX")
@@ -293,18 +329,65 @@ with tab1:
                         st.success(f"{asset.upper()} ➔ BULLISH")
                     elif direction == "bearish":
                         st.error(f"{asset.upper()} ➔ BEARISH")
+                        
+# --- LIVE NEWS SCREENER MATRIX (INFORMATION OVERLOAD FIX) ---
+        with st.container(border=True):
+            st.subheader("24H MACRO EVENT SCREENER")
+            st.markdown("Filter ingested global headlines by extracted macroeconomic features.")
+            
+            # Pull data directly from the RAG memory bank
+            if memory_bank.get("documents"):
+                screener_data = []
+                for doc, meta in zip(memory_bank["documents"], memory_bank["metadatas"]):
+                    # Look up the URL from the live news dictionary, fallback if manual
+                    article_url = live_news_dict.get(doc, "https://finance.yahoo.com") if doc in live_news_dict else None
+                    
+                    screener_data.append({
+                        "Headline": doc,
+                        "Country": meta.get("country", "Global").upper(),
+                        "Asset Class": meta.get("asset_class", "MULTI").upper(),
+                        "Theme": meta.get("theme", "N/A"),
+                        "Impact": meta.get("direction", "NEUTRAL").upper(),
+                        "Source Link": article_url
+                    })
+                
+                import pandas as pd
+                df_screener = pd.DataFrame(screener_data)
+                
+                # Streamlit 1.32+ native column filtering and clickable links
+                st.dataframe(
+                    df_screener,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=250, # Keeps it compact
+                    column_config={
+                        "Source Link": st.column_config.LinkColumn(
+                            "Source Link", 
+                            help="Click to read the original article",
+                            display_text="Read Article 🔗" # Makes it look clean instead of a raw ugly URL string
+                        )
+                    }
+                )
+            else:
+                st.info("No structured events in memory. Run 'Auto-Ingest' above to populate the screener.")
 
 # ==========================================
-# TAB 2: MACRO ENGINE
+# TAB 2: MACRO REGIME & RISKS
 # ==========================================
 with tab2:
-    st.subheader("MACRO REGIME MONITOR")
+    st.subheader("MACRO REGIME MONITOR (6-MONTH STRUCTURAL)")
 
-    growth_signal = macro_data.get("US 10Y Yield", {}).get("change", 0)
-    inflation_signal = macro_data.get("Crude Oil", {}).get("change", 0)
+    growth_signal = macro_data.get("US 10Y Yield", {}).get("6mo_change", 0.0)
+    inflation_signal = macro_data.get("Crude Oil", {}).get("6mo_change", 0.0)
     regime = classify_regime(growth_signal, inflation_signal)
-    st.metric("CURRENT MACRO REGIME", regime)
-    
+
+    col_reg1, col_reg2 = st.columns([1,1])
+    with col_reg1:
+        st.metric("CURRENT MACRO REGIME", regime, help="Calculated using 6-Month Rolling Momentum")
+    with col_reg2:
+        st.caption("Structural Signals (6-Month Momentum):")
+        st.code(f"Growth Proxy (10Y): {growth_signal}%\nInflation Proxy (Oil): {inflation_signal}%")
+
     with st.container(border=True):
         st.subheader("Risk Engine")
         if "risks" in st.session_state:
@@ -314,44 +397,131 @@ with tab2:
             st.info("No risk signals detected yet.")
 
     with st.container(border=True):
-        st.subheader("Macro Causal Graph")
-        if "propagation" in st.session_state:
-            G = nx.DiGraph()
-            for p in st.session_state.propagation:
-                G.add_edge(p["source"], p["target"])
-            
-            fig_col, _ = st.columns([2, 1])
-            with fig_col:
-                fig, ax = plt.subplots(facecolor='#0d1117')
-                ax.set_facecolor('#0d1117')
-                nx.draw(
-                    G, with_labels=True, node_size=3000, font_size=9, 
-                    ax=ax, node_color='#ff9d00', font_color='black', edge_color='#58a6ff'
-                )
-                st.pyplot(fig)
+        st.subheader("Multi-Asset Correlation Matrix")
+        st.markdown("Monitoring the daily shifting relationships between Equities, Treasuries, Commodities, and FX.")
+        corr_matrix = fetch_correlation_matrix()
+
+        if corr_matrix is not None:
+            fig_heatmap = go.Figure(data=go.Heatmap(
+                z = corr_matrix.values,
+                x = corr_matrix.columns,
+                y = corr_matrix.index,
+                colorscale = "RdBu",
+                zmin = -1, zmax = 1,
+                text = corr_matrix.values,
+                texttemplate = "%{text}",
+                showscale = True
+            ))
+
+            fig_heatmap.update_layout(
+                template = 'plotly_dark',
+                plot_bgcolor= 'rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                margin=dict(l=0, r=0, t=30, b=0),
+                height=350,
+                xaxis_title="",
+                yaxis_title="",
+            )
+
+            st.plotly_chart(fig_heatmap, use_container_width= True)
         else:
-            st.info("Awaiting macro shock propagation.")
+            st.error("Correlation data currently unavailable")    
 
     with st.container(border=True):
-        col_reg1, col_reg2, col_reg3 = st.columns(3)
-        
-        is_risk_on = macro_data.get("US 10Y Yield", {}).get("change", 0) > 0 and macro_data.get("Crude Oil", {}).get("change", 0) > 0
-        curve_inverted = macro_data.get("US 2Y Yield", {}).get("val", 0) > macro_data.get("US 10Y Yield", {}).get("val", 0)
-        
-        with col_reg1:
-            st.markdown("### Market Sentiment")
-            if is_risk_on: st.success("RISK-ON (Growth Optimism)")
-            else: st.error("RISK-OFF (Flight to Safety)")
+            st.subheader("GLOBAL MACRO CAUSAL GRAPH")
+            st.markdown("Visualizing cross-asset implications and directional effects.")
+            
+            if "propagation" in st.session_state and st.session_state.propagation:
+                G = nx.DiGraph()
+                edge_labels = {}
                 
-        with col_reg2:
-            st.markdown("### Yield Curve Shape")
-            if curve_inverted: st.error("INVERTED (Recession Warning)")
-            else: st.success("NORMAL (Economic Expansion)")
+                for p in st.session_state.propagation:
+                    source = p["source"]
+                    target = p["target"]
+                    effect = p["effect"].upper() 
+                    
+                    G.add_edge(source, target)
+                    edge_labels[(source, target)] = effect
                 
-        with col_reg3:
-            st.markdown("### Dominant Dollar (DXY)")
-            if macro_data.get("DXY (Dollar)", {}).get("change", 0) > 0: st.warning("STRONG DOLLAR (Tightening)")
-            else: st.info("WEAK DOLLAR (Accommodative)")
+                fig_col, _ = st.columns([2, 1])
+                with fig_col:
+                    fig, ax = plt.subplots(figsize=(10, 6), facecolor='#000000')
+                    ax.set_facecolor('#000000')
+                    
+                    pos = nx.spring_layout(G, k=2.0, seed=42) 
+                    
+                    nx.draw_networkx_nodes(
+                        G, pos, ax=ax, 
+                        node_color='#0d1117', 
+                        edgecolors='#ff9d00', 
+                        node_size=3000, 
+                        linewidths=2
+                    )
+                    
+                    nx.draw_networkx_edges(
+                        G, pos, ax=ax, 
+                        edge_color='#58a6ff', 
+                        arrows=True, 
+                        arrowsize=20, 
+                        width=2,
+                        connectionstyle="arc3,rad=0.1" 
+                    )
+                    
+                    nx.draw_networkx_labels(
+                        G, pos, ax=ax, 
+                        font_size=10, 
+                        font_color='white', 
+                        font_family='sans-serif', 
+                        font_weight='bold'
+                    )
+                    
+                    nx.draw_networkx_edge_labels(
+                        G, pos, ax=ax,
+                        edge_labels=edge_labels, 
+                        font_color='#f85149', 
+                        font_size=9, 
+                        font_weight='bold',
+                        bbox=dict(facecolor='#000000', edgecolor='none', pad=0) 
+                    )
+                    
+                    ax.axis('off')
+                    st.pyplot(fig)
+            else:
+                st.info("Awaiting macro shock propagation.")
+        
+
+    with st.container(border=True):
+            col_reg1, col_reg2, col_reg3 = st.columns(3)
+            
+            sp500_6mo = macro_data.get("S&P 500", {}).get("6mo_change", 0.0)
+            is_risk_on = sp500_6mo > 0 
+            
+            curr_2y = macro_data.get("US 2Y Yield", {}).get("val", 0.0)
+            curr_10y = macro_data.get("US 10Y Yield", {}).get("val", 0.0)
+            curve_inverted = curr_2y > curr_10y and curr_10y != 0.0
+            
+            dxy_6mo = macro_data.get("DXY (Dollar)", {}).get("6mo_change", 0.0)
+            
+            with col_reg1:
+                st.markdown("### Market Sentiment")
+                if is_risk_on: 
+                    st.success(f"RISK-ON (+{sp500_6mo}% 6mo)")
+                else: 
+                    st.error(f"RISK-OFF ({sp500_6mo}% 6mo)")
+                    
+            with col_reg2:
+                st.markdown("### Yield Curve Shape")
+                if curve_inverted: 
+                    st.error(f"INVERTED ({curr_2y} > {curr_10y})")
+                else: 
+                    st.success(f"NORMAL ({curr_10y} > {curr_2y})")
+                    
+            with col_reg3:
+                st.markdown("### Dominant Dollar (DXY)")
+                if dxy_6mo > 0: 
+                    st.warning(f"STRONG DOLLAR (+{dxy_6mo}% 6mo)")
+                else: 
+                    st.info(f"WEAK DOLLAR ({dxy_6mo}% 6mo)")
 
 # ==========================================
 # TAB 3: EXECUTION TERMINAL 
@@ -364,7 +534,7 @@ with tab3:
     
     with chart_col:
         with st.container(border=True):
-            st.markdown("### Interactive Charting")
+            st.markdown("### Interactive Charting and Asset Risk")
             
             with st.form("chart_form"):
                 c_input1, c_input2, c_input3 = st.columns(3)
@@ -382,6 +552,20 @@ with tab3:
                     df = fetch_chart_data(target_ticker, time_period, chart_interval)
                     
                     if df is not None and not df.empty:
+                        
+                        daily_returns = df['Close'].pct_change().dropna()
+                        var_95 = np.percentile(daily_returns, 5) * 100
+                        volatility = daily_returns.std() * np.sqrt(252) * 100
+
+                        #risk metrics
+                        r1, r2, r3 = st.columns(3)
+                        r1.metric("1-Day 95% VaR", f"{var_95:.2f}%", help="In 95% of trading days, daily losses will not exceed this percentage.")
+                        r2.metric("Annualized Volatility", f"{volatility:.2f}%")
+                        r3.metric("Current Price", f"${df['Close'].iloc[-1]:.2f}")
+                        
+                        st.divider()
+
+                        #charting
                         fig = go.Figure(data=[go.Candlestick(
                             x=df.index, open=df["Open"], high=df["High"],
                             low=df["Low"], close=df["Close"], name=target_ticker,
@@ -427,62 +611,70 @@ with tab3:
                 else:
                     st.error("Please enter a ticker and a thesis.")
 
+
 # ==========================================
-# TAB 4: AI TRADE GENERATOR (THE FIX)
+# TAB 4: MACRO AI CO-PILOT
 # ==========================================
 with tab4:
-    st.subheader("AI TRADE GENERATOR")
+    st.subheader("MACRO AI CO-PILOT")
+    st.markdown("Converse with the institutional memory engine to synthesize theses, query past precedents, and debate structural positioning.")
+
+    current_news = st.session_state.get("current_headline", "No live news parsed yet.")
     
-    # THE FIX: Explicit Context Selection for the AI Trade Engine
-    context_source = st.radio("Signal Lookback Horizon (Provenance):", 
-                              ["Live Parsed Event (Intraday)", "Morning Briefing (Past 24 Hours)"], 
-                              horizontal=True)
+    memory_context = "Memory bank is currently empty."
     
-    if context_source == "Live Parsed Event (Intraday)":
-        if "structured_data" in st.session_state:
-            st.info(f"Generating trades reacting to: {st.session_state.current_headline}")
-            node = st.session_state.structured_data.get("macro_node")
-            direction = st.session_state.structured_data.get("direction")
-            
-            growth = macro_data.get("US 10Y Yield",{}).get("change",0)
-            inflation = macro_data.get("Crude Oil",{}).get("change",0)
-            regime = classify_regime(growth, inflation)
-            
-            trades = generate_ai_trades(node, direction, regime)
-            propagation = st.session_state.get("propagation", [])
-            scored = score_trades(trades, propagation)
-
-            st.divider()
-            for t in scored:
-                st.success(f"{t['trade']}  |  Confidence {t['confidence']}%")
+    if current_news != "No live news parsed yet." and memory_bank.get("documents"):
+        memory_results = recall_past_events(current_news)
+        
+        if memory_results and memory_results['documents'] and len(memory_results["documents"][0]) > 0:
+            relevant_docs = []
+            for i in range(len(memory_results['documents'][0])):
+                doc = memory_results['documents'][0][i]
+                meta = memory_results['metadatas'][0][i]
+                distance = round(memory_results['distances'][0][i], 4)
+                
+                relevant_docs.append(f"[Past Event: {doc} | Theme: {meta.get('theme')} | Math Distance: {distance}]")
+                
+            memory_context = " | ".join(relevant_docs)
         else:
-            st.warning("Run News Intelligence event parsing first to generate an intraday signal.")
-            
-    elif context_source == "Morning Briefing (Past 24 Hours)":
-        if "morning_thesis" in st.session_state:
-            t = st.session_state.morning_thesis
-            st.info(f"Generating structural trades based on 24h Theme: {t.get('dominant_theme')}")
-            
-            # Use the Morning Thesis data to map to the trade generator
-            node = t.get('dominant_theme', 'Unknown')
-            direction = "increases" # Default proxy for themes
-            regime = t.get('market_regime', 'Unknown')
-            
-            trades = generate_ai_trades(node, direction, regime)
-            propagation = st.session_state.get("propagation", [])
-            scored = score_trades(trades, propagation)
+             memory_context = "No highly relevant historical precedents found for this specific shock."
+             
+    with st.expander("🔍 View Active AI Context (Live Data + RAG Retrieved Memory)"):
+        st.write(f"**Latest Parsed Event (Morning Briefing & News):** {current_news}")
+        st.write(f"**Retrieved Institutional Precedents:**\n{memory_context}")
 
-            st.divider()
-            if scored:
-                for tr in scored:
-                    st.success(f"{tr['trade']}  |  Confidence {tr['confidence']}%")
-            else:
-                st.info("No specific systemic trades mapped for this morning's dominant theme. Rely on High Conviction Call.")
-        else:
-            st.warning("Run the Morning Macro Briefing in Tab 1 first to establish a 24-hour structural thesis.")
+    if "messages" not in st.session_state:
+        st.session_state.messages = [
+            {"role": "assistant", "content": "System online. I have synced with the Institutional Memory and live cross-asset pricing. How can we formulate today's macro thesis?"}
+        ]
 
+    chat_container = st.container(height=450, border=True)
+    with chat_container:
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+    if prompt := st.chat_input("E.g., Compare today's headline to our institutional memory. What is the optimal RV trade?"):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        
+        with chat_container:
+            with st.chat_message("user"):
+                st.markdown(prompt)
+            
+            with st.chat_message("assistant"):
+                with st.spinner("Synthesizing institutional memory and live pricing..."):
+                    response = chat_with_macro_assistant(
+                        prompt, 
+                        st.session_state.messages[:-1], 
+                        macro_data, 
+                        memory_context, 
+                        current_news
+                    )
+                    st.markdown(response)
+                    st.session_state.messages.append({"role": "assistant", "content": response})
+                    
 # ==========================================
-# TAB 5: INSTITUTIONAL MEMORY
+# TAB 5: INSTITUTIONAL ARCHIVE
 # ==========================================
 with tab5:
     st.subheader("INTERNAL DATABASE VIEWER")
@@ -495,7 +687,7 @@ with tab5:
             if trade_blotter:
                 st.dataframe(trade_blotter[::-1], use_container_width=True)
             else:
-                st.info("Trade blotter is currently empty. Execute a trade in the Charting tab.")
+                st.info("Trade blotter is currently empty. Execute a trade in the Execution Terminal.")
         else:
             if memory_bank["documents"]:
                 archive_data = []

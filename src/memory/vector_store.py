@@ -93,20 +93,39 @@ def save_to_trade_blotter(ticker: str, action: str, thesis: str, critique: dict)
 # Run this once on startup to load history
 load_trade_blotter()
 
-def recall_past_events(current_event: str, n_results: int = 2) -> dict:
-    """Searches the memory bank using Cosine Similarity"""
+def recall_past_events(current_event: str, n_results: int = 10) -> dict:
+    """Searches the memory bank using Cosine Similarity, explicitly excluding the current event."""
     if not memory_bank["documents"]:
         return {"documents": [[]], "metadatas": [[]], "distances": [[]]}
 
+    # Combine historical docs with the query to build the vocabulary matrix
     all_texts = memory_bank["documents"] + [current_event]
     tfidf_matrix = vectorizer.fit_transform(all_texts)
 
+    # Separate the history from the query
     historical_vectors = tfidf_matrix[:-1]
     query_vector = tfidf_matrix[-1]
 
+    # Calculate cosine similarity
+    from sklearn.metrics.pairwise import cosine_similarity
     similarities = cosine_similarity(query_vector, historical_vectors).flatten()
 
-    top_indices = similarities.argsort()[-n_results:][::-1]
+    # Sort indices by highest similarity (descending)
+    sorted_indices = similarities.argsort()[::-1]
+
+    # THE QUANT FIX: Filter out exact matches to prevent data leakage
+    top_indices = []
+    for idx in sorted_indices:
+        # Check if the text is exactly the same (ignoring case/spaces)
+        if memory_bank["documents"][idx].strip().lower() != current_event.strip().lower():
+            top_indices.append(idx)
+        # Stop once we hit our target number of results (e.g., 10)
+        if len(top_indices) == n_results:
+            break
+
+    # If the database is super small, handle edge cases where we have fewer than 10 valid matches
+    if not top_indices:
+        return {"documents": [[]], "metadatas": [[]], "distances": [[]]}
 
     results = {
         "documents": [[memory_bank["documents"][i] for i in top_indices]],

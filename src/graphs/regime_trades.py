@@ -1,39 +1,39 @@
+"""
+Structural Macro Regime Trades (3-6 Month Horizon)
+"""
+
 REGIME_TRADES = {
+    "Goldilocks": [
+        "Long Risk Assets (NQ/ES Futures)",
+        "Short VIX Futures (Harvest Volatility Risk Premium)",
+        "Long EM FX Carry Trades (e.g., BRL/JPY)",
+        "Long High Yield vs IG Credit Spreads" 
+    ],
 
-"Goldilocks":[
+    "Overheating": [ 
+        "Short US Treasuries (Bear Flattener Curve Trade)", 
+        "Long Broad Commodities (BCOM Index)",
+        "Long Value vs. Growth Factor RV",
+        "Long Breakeven Inflation (TIPS vs Nominal)"
+    ],
 
-"Long S&P 500",
-"Long Nasdaq",
-"Short VIX",
-"Long EM equities"
+    "Stagflation": [
+        "Long Gold (XAU/USD)",
+        "Long Volatility (VIX Call Spreads)",
+        "Short Consumer Discretionary vs. Staples (XLY/XLP RV)",
+        "Underweight Duration (Cash)"
+    ],
 
-],
-
-"Overheat":[
-
-"Long Oil",
-"Long Commodities",
-"Short Bonds",
-"Long Energy equities"
-
-],
-
-"Stagflation":[
-
-"Long Gold",
-"Long Oil",
-"Short Equities",
-"Long Volatility"
-
-],
-
-"Recession":[
-
-"Long US Treasuries",
-"Long Gold",
-"Short Cyclicals",
-"Short High Yield Credit"
-
-]
-
+    "Recession": [
+        "Long US Duration (Bull Steepener Curve Trade)", 
+        "Long Gold (Flight to Safety)",
+        "Short Cyclicals (Industrials/Materials)",
+        "Short High Yield Credit (CDX HY Widening)"
+    ],
+    
+    "Neutral": [
+        "Harvest Yield (Selling Iron Condors)",
+        "Market-Neutral Statistical Arbitrage",
+        "Wait for Regime Confirmation"
+    ]
 }
