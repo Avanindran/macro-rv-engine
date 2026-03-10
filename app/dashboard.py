@@ -103,8 +103,8 @@ live_news_dict = fetch_live_news()
 # ==========================================
 # HEADER & LIVE PRICING STRIP
 # ==========================================
-st.title("SCHRODERS MACRO-RAG TERMINAL V2.0")
-st.markdown("**SYSTEM STATUS:** ONLINE | **ASSET CLASS:** MULTI | **ENGINE:** TF-IDF, LLAMA-3 & STAT-ARB")
+st.title("MACROSYNTHETIX TERMINAL")
+st.markdown("**SYSTEM STATUS:** ONLINE | **ASSET CLASS:** MULTI | **ENGINE:** TF-IDF, LLAMA-3")
 st.write("")
 
 if macro_data:
